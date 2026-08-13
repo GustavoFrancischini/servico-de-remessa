@@ -4,14 +4,19 @@ micronaut:
   server:
     port: 8080
 
+bcb:
+  ptax:
+    base-url: https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata
+    fallback-days: 7  # máximo de dias anteriores a consultar quando não há cotação na data solicitada
+
 datasources:
   default:
-    url: jdbc:h2:mem:remessaDb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER
+    url: jdbc:h2:mem:remessaDb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     driverClassName: org.h2.Driver
     username: sa
     password: ""
     schema-generate: NONE
-    dialect: H2
+    dialect: POSTGRES
 
 flyway:
   datasources:

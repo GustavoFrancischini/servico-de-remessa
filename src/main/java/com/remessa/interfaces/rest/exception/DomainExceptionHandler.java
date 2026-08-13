@@ -3,6 +3,7 @@ package com.remessa.interfaces.rest.exception;
 import com.remessa.domain.exception.DomainException;
 import com.remessa.domain.exception.DuplicateDocumentException;
 import com.remessa.domain.exception.DuplicateEmailException;
+import com.remessa.domain.exception.ExchangeRateUnavailableException;
 import com.remessa.domain.exception.InvalidDocumentException;
 import com.remessa.domain.exception.UserNotFoundException;
 import io.micronaut.http.HttpRequest;
@@ -33,6 +34,9 @@ public class DomainExceptionHandler implements ExceptionHandler<DomainException,
         }
         if (exception instanceof InvalidDocumentException) {
             return HttpStatus.BAD_REQUEST;
+        }
+        if (exception instanceof ExchangeRateUnavailableException) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
         }
         return HttpStatus.BAD_REQUEST;
     }

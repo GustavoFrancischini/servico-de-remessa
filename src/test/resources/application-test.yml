@@ -1,3 +1,7 @@
 datasources:
   default:
-    url: jdbc:h2:mem:remessaTestDb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER
+    url: jdbc:h2:mem:remessaTestDb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+
+bcb:
+  ptax:
+    base-url: http://localhost:8099  # não utilizado nos testes — cliente não é chamado diretamente

@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** Repositório técnico gerado pelo Micronaut Data; usado apenas pelos adapters de infraestrutura. */
-@JdbcRepository(dialect = Dialect.H2)
+@JdbcRepository(dialect = Dialect.POSTGRES)
 public interface WalletJdbcRepository extends CrudRepository<WalletEntity, UUID> {
 
     Optional<WalletEntity> findByUserId(UUID userId);
