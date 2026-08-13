@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /** Repositório técnico gerado pelo Micronaut Data; usado apenas pelos adapters de infraestrutura. */
-@JdbcRepository(dialect = Dialect.H2)
+@JdbcRepository(dialect = Dialect.POSTGRES)
 public interface UserJdbcRepository extends CrudRepository<UserEntity, UUID> {
 
     Optional<UserEntity> findByEmail(String email);
