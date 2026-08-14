@@ -1,124 +1,55 @@
 # Serviço de Remessa Internacional
 
-Desafio técnico backend: uma API que permite remessa internacional de dinheiro entre
-usuários Pessoa Física (PF) e Pessoa Jurídica (PJ). Uma remessa converte um valor de
-Real (BRL) para Dólar (USD) usando a cotação do Banco Central e transfere o valor
-convertido para a carteira em USD do destinatário.
+API RESTful que permite remessa internacional entre usuários Pessoa Física (PF) e
+Pessoa Jurídica (PJ). Uma remessa converte um valor em Real (BRL) para Dólar (USD)
+usando a cotação de compra (`cotacaoCompra`) da API PTAX do Banco Central, debita o
+valor da carteira BRL do remetente e credita o equivalente em USD na carteira do
+destinatário.
 
-> **Status atual:** Incremento 1 — setup do projeto, domínio de usuários
-> (PF/PJ) e carteiras. Cotação e operação de remessa serão implementadas
-> nos próximos incrementos.
+## Como compilar e executar
 
-## Tecnologias
+Não é necessário ter o Maven instalado — o projeto inclui o Maven Wrapper.
 
-- **Java 25**
-- **Micronaut 5** (`io.micronaut.platform:micronaut-parent:5.1.0`)
-- **Maven** (com Maven Wrapper incluso — não é necessário ter o Maven instalado)
-- **H2** (banco em memória)
-- **Flyway** (migrations)
-- **Micronaut Data JDBC** (persistência, sem overhead de um ORM completo)
-- **Micronaut Validation** (Bean Validation)
-- **Micronaut Serde (Jackson)** (serialização de DTOs)
-- **jBCrypt** (hash de senha)
-- **JUnit 5 + Mockito + AssertJ + Micronaut Test** (testes unitários e de integração)
+```bash
+# Linux/macOS
+./mvnw mn:run
 
-## Arquitetura
-
-Arquitetura inspirada em Clean/Hexagonal, aplicada de forma pragmática — sem
-microsserviços e sem abstrações desnecessárias. Os pacotes principais em
-`com.remessa`:
-
-```
-domain
-├── model         → entidades e value objects (User, Wallet, Document, DocumentType, UserAccount)
-├── policy        → regras de negócio parametrizáveis (Strategy: DailyLimitPolicy)
-├── repository    → portas (interfaces) de persistência, sem depender de infraestrutura
-├── security      → porta de hashing de senha
-└── exception     → exceções de domínio
-
-application
-└── service       → casos de uso (UserService), orquestram domínio + portas
-
-infrastructure
-├── persistence   → adapters Micronaut Data JDBC (entities, repositories técnicos, adapters)
-└── security      → implementação concreta do hashing (BCrypt)
-
-interfaces
-└── rest
-    ├── controller → endpoints REST
-    ├── dto        → contratos de entrada/saída da API (nunca expõem entidades)
-    └── exception  → tratamento centralizado de erros HTTP
+# Windows
+mvnw.cmd mn:run
 ```
 
-A regra de negócio (`domain`) não depende de nenhuma classe de infraestrutura. Os
-`repository`/`security` em `domain` são portas; suas implementações concretas vivem em
-`infrastructure` e são plugadas via injeção de dependência (Micronaut DI).
+A aplicação sobe em `http://localhost:8080`. O banco H2 em memória e as tabelas são
+criados automaticamente via Flyway na inicialização.
 
-### Decisões arquiteturais
+## Como executar os testes
 
-- **PF vs. PJ modelados por composição, não por herança.** Um único `User` contém um
-  `Document` (value object) com um `DocumentType` (`CPF` ou `CNPJ`). O limite diário
-  (R$10k para PF, R$50k para PJ) é resolvido por uma estratégia (`DailyLimitPolicy`,
-  `sealed interface` com duas implementações + `DailyLimitPolicyResolver`), injetada
-  automaticamente pelo Micronaut. Motivo: com Micronaut Data JDBC (mapeamento simples,
-  sem sessão/ORM completo), herança de entidades exigiria estratégias de mapeamento
-  mais complexas (tabela única com discriminador gerenciado manualmente); a estratégia
-  evita isso mantendo uma única tabela `users`, é mais fácil de testar isoladamente
-  (mock de `DailyLimitPolicy`) e é extensível: um novo tipo de usuário = uma nova
-  policy, sem alterar código existente (Open/Closed).
-- **Document valida CPF/CNPJ de verdade** (algoritmo de dígito verificador), não apenas
-  formato/tamanho.
-- **Micronaut Data JDBC em vez de Micronaut Data JPA/Hibernate.** Para este escopo
-  (poucas entidades, sem necessidade de lazy loading, cache de sessão ou grafo de
-  objetos complexo), JDBC oferece: startup mais rápido, sem reflexão em runtime,
-  queries pré-computadas em tempo de compilação e uma API mais simples/previsível.
-  Isso reduz a superfície de "mágica" do ORM e facilita testar e raciocinar sobre o
-  SQL gerado.
-- **Flyway para migrations** em vez de `schema-generate` automático do Micronaut Data —
-  abordagem profissional padrão de mercado, versionada e auditável.
-- **Tratamento de erros centralizado**: exceções de domínio (`DomainException` e
-  subclasses) nunca vazam como stack trace; um `ExceptionHandler` único as traduz em
-  respostas HTTP consistentes (`ErrorResponse`) com o status apropriado (409 para
-  duplicidade, 404 para não encontrado, 400 para dados inválidos).
-- **Senha nunca em texto puro**: hashing via BCrypt (jBCrypt), atrás de uma porta
-  (`PasswordHasher`) para não acoplar o domínio a uma biblioteca específica.
-- **BigDecimal para todo valor monetário** (nunca `double`/`float`); `java.time` para
-  datas/horários.
+```bash
+# Linux/macOS
+./mvnw test
 
-## Modelagem do banco (Incremento 1)
-
-```
-users
-├── id (UUID, PK)
-├── full_name
-├── email (UNIQUE)
-├── password_hash
-├── document_type (CPF | CNPJ)
-├── document_value (UNIQUE)
-└── created_at
-
-wallets
-├── id (UUID, PK)
-├── user_id (UNIQUE, FK -> users.id)
-├── balance_brl (NUMERIC(19,2), default 0)
-├── balance_usd (NUMERIC(19,2), default 0)
-└── created_at
+# Windows
+mvnw.cmd test
 ```
 
-Toda criação de usuário cria automaticamente uma carteira zerada, na mesma transação
-(`UserServiceImpl`, `@Transactional`). Tabelas de `transfers` e `exchange_rate` serão
-adicionadas em uma migration própria quando a remessa for implementada (ver
-[Progresso incremental](#progresso-incremental)).
+## API
 
-## API (Incremento 1)
+### Usuários
 
-| Método | Rota              | Descrição                                          |
-|--------|-------------------|-----------------------------------------------------|
-| POST   | `/api/users/pf`   | Cria um usuário Pessoa Física                       |
-| POST   | `/api/users/pj`   | Cria um usuário Pessoa Jurídica                     |
-| GET    | `/api/users/{id}` | Consulta um usuário por id, incluindo saldos        |
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/api/users/pf` | Cria um usuário Pessoa Física (CPF) |
+| `POST` | `/api/users/pj` | Cria um usuário Pessoa Jurídica (CNPJ) |
+| `GET`  | `/api/users/{id}` | Consulta usuário e saldos por id |
 
-Exemplo de criação de PF:
+### Remessas
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/api/remessas` | Executa uma remessa BRL → USD |
+
+### Exemplos
+
+**Criar usuário PF:**
 
 ```bash
 curl -X POST http://localhost:8080/api/users/pf \
@@ -131,92 +62,194 @@ curl -X POST http://localhost:8080/api/users/pf \
       }'
 ```
 
+**Criar usuário PJ:**
+
+```bash
+curl -X POST http://localhost:8080/api/users/pj \
+  -H "Content-Type: application/json" \
+  -d '{
+        "fullName": "Empresa LTDA",
+        "email": "contato@empresa.com",
+        "password": "secret123",
+        "cnpj": "11.222.333/0001-81"
+      }'
+```
+
+**Executar remessa:**
+
+```bash
+curl -X POST http://localhost:8080/api/remessas \
+  -H "Content-Type: application/json" \
+  -d '{
+        "senderId": "<uuid-do-remetente>",
+        "receiverId": "<uuid-do-destinatario>",
+        "amountBrl": 1000.00
+      }'
+```
+
 Resposta (`201 Created`):
 
 ```json
 {
-  "id": "…",
-  "fullName": "Ana Silva",
-  "email": "ana@example.com",
-  "documentType": "CPF",
-  "documentValue": "52998224725",
-  "balanceBrl": 0.00,
-  "balanceUsd": 0.00,
-  "createdAt": "…"
+  "id": "...",
+  "senderId": "...",
+  "receiverId": "...",
+  "amountBrl": 1000.00,
+  "amountUsd": 165.8200,
+  "exchangeRate": 6.0310,
+  "executedAt": "2026-08-13T21:00:00"
 }
 ```
 
-Erros de negócio (e-mail/documento duplicado, usuário não encontrado, documento
-inválido) retornam um corpo JSON padronizado, por exemplo:
+**Erros retornam sempre o mesmo formato:**
 
 ```json
 {
-  "timestamp": "2026-08-13T12:00:00Z",
-  "status": 409,
-  "error": "Conflict",
-  "message": "Já existe um usuário cadastrado com o e-mail: ana@example.com",
-  "path": "/api/users/pf"
+  "timestamp": "2026-08-13T21:00:00Z",
+  "status": 422,
+  "error": "Unprocessable Entity",
+  "message": "Saldo insuficiente para o usuário ...",
+  "path": "/api/remessas"
 }
 ```
 
-## Como compilar e executar
+| Situação | Status |
+|----------|--------|
+| E-mail ou documento duplicado | 409 |
+| Usuário não encontrado | 404 |
+| Documento inválido / campo obrigatório ausente | 400 |
+| Saldo insuficiente | 422 |
+| Limite diário excedido | 422 |
+| Cotação indisponível (API BCB fora do ar) | 503 |
 
-Não é necessário ter o Maven instalado — o projeto inclui o Maven Wrapper.
+## Requisitos implementados
 
-```bash
-# Linux/macOS
-./mvnw compile
-./mvnw mn:run
+| Requisito do desafio | Status |
+|----------------------|--------|
+| API RESTful de remessa BRL → USD | ✅ |
+| Cotação via API PTAX do Banco Central (`cotacaoCompra`) | ✅ |
+| Fallback para último dia útil quando sem cotação (fins de semana/feriados) | ✅ |
+| Banco em memória (H2) | ✅ |
+| Carteira BRL e USD por usuário | ✅ |
+| Validação de saldo antes da remessa | ✅ |
+| Cadastro com nome completo, e-mail, senha, CPF (PF) ou CNPJ (PJ) | ✅ |
+| E-mail, CPF e CNPJ únicos | ✅ |
+| Limite diário PF: R$ 10.000 | ✅ |
+| Limite diário PJ: R$ 50.000 | ✅ |
+| Sem restrição de tipo entre remetente e destinatário | ✅ |
+| Remessa transacional (rollback em caso de falha) | ✅ |
 
-# Windows
-mvnw.cmd compile
-mvnw.cmd mn:run
+## Tecnologias
+
+- **Java 25** / **Maven** (com Maven Wrapper)
+- **Micronaut 5** (`micronaut-parent 5.1.0`)
+- **H2** (banco em memória) + **Flyway** (migrations versionadas)
+- **Micronaut Data JDBC** — sem overhead de ORM, queries geradas em compile-time
+- **Micronaut Serde (Jackson)** + **Micronaut Validation**
+- **jBCrypt** (hash de senha)
+- **JUnit 5 + Mockito + AssertJ + Micronaut Test**
+
+## Arquitetura
+
+Arquitetura hexagonal aplicada de forma pragmática. Pacotes em `com.remessa`:
+
+```
+domain
+├── model        → User, Wallet, Transfer, Document, DocumentType
+├── policy       → DailyLimitPolicy (Strategy: PF 10k / PJ 50k)
+├── gateway      → ExchangeRateGateway (porta para API do BCB)
+├── repository   → portas de persistência (interfaces puras)
+├── security     → PasswordHasher (porta)
+└── exception    → exceções de domínio tipadas
+
+application
+└── service      → RemessaService, UserService (casos de uso)
+
+infrastructure
+├── exchange     → adapter da API PTAX (PtaxClient @Client, fallback)
+├── persistence  → adapters Micronaut Data JDBC
+└── security     → BCryptPasswordHasher
+
+interfaces
+└── rest
+    ├── controller → RemessaController, UserController
+    ├── dto        → contratos HTTP (nunca expõem entidades internas)
+    └── exception  → DomainExceptionHandler (tratamento centralizado)
 ```
 
-A aplicação sobe em `http://localhost:8080`. O banco H2 em memória e as tabelas
-(via Flyway) são criados automaticamente na inicialização.
+O domínio não depende de nenhuma classe de infraestrutura. As portas (`gateway`,
+`repository`, `security`) são interfaces em `domain`; suas implementações concretas
+vivem em `infrastructure` e são injetadas pelo Micronaut.
 
-## Como testar
+## Decisões de design
 
-```bash
-# Linux/macOS
-./mvnw test
+**PF e PJ modelados por composição, não herança.** Um único `User` contém um
+`Document` (value object) com `DocumentType` (`CPF` ou `CNPJ`). O limite diário é
+resolvido por `DailyLimitPolicyResolver` (Strategy), que seleciona a policy correta
+pelo tipo do documento do remetente. Isso mantém uma única tabela `users`, é
+extensível sem modificar código existente (Open/Closed) e é trivialmente testável.
 
-# Windows
-mvnw.cmd test
+**`LocalDateTime` em `Transfer.executedAt`** — a coluna é `TIMESTAMP` sem timezone,
+e `LocalDateTime` é persistido literalmente sem conversão de fuso. Isso garante que
+`CAST(executed_at AS DATE) = :date` (usado na validação do limite diário) funcione
+corretamente independente do timezone da JVM, evitando que remessas próximas da
+virada do dia sejam atribuídas ao dia errado.
+
+**Cotação com fallback.** `ExchangeRateGatewayAdapter` tenta a data solicitada e
+retrocede um dia por vez até `bcb.ptax.fallback-days` (padrão: 7), sem lógica
+específica para sábado/domingo — qualquer ausência de cotação dispara o fallback.
+`HttpClientException` interrompe imediatamente sem retroceder, pois indica problema
+de conectividade, não de ausência de dado.
+
+**`Wallet` é imutável.** `debitBrl` e `creditUsd` retornam uma nova instância com
+o saldo atualizado. O `RemessaServiceImpl` obtém as duas novas instâncias antes de
+qualquer escrita, garantindo que em caso de falha anterior ao `update()` nenhum
+estado parcial é persistido.
+
+**Validação real de CPF e CNPJ** (algoritmo de dígitos verificadores), não apenas
+formato/tamanho.
+
+**Flyway** em vez de `schema-generate` automático — versionado, auditável e o
+padrão profissional de mercado.
+
+## Modelagem do banco
+
+```
+users
+├── id (UUID, PK)
+├── full_name, email (UNIQUE), password_hash
+├── document_type ('CPF' | 'CNPJ'), document_value (UNIQUE)
+└── created_at
+
+wallets
+├── id (UUID, PK)
+├── user_id (UNIQUE, FK → users.id)
+├── balance_brl NUMERIC(19,2), balance_usd NUMERIC(19,2)
+└── created_at
+
+transfers
+├── id (UUID, PK)
+├── sender_id (FK → users.id), receiver_id (FK → users.id)
+├── amount_brl NUMERIC(19,4), amount_usd NUMERIC(19,4)
+├── exchange_rate NUMERIC(19,6)
+└── executed_at TIMESTAMP
 ```
 
-A suíte cobre:
+`NUMERIC(19,4)` para valores monetários (4 casas para precisão na conversão) e
+`NUMERIC(19,6)` para a cotação. Índice em `(sender_id, executed_at)` para a query
+de soma diária usada na validação do limite.
 
-- **Testes unitários de domínio** (`DocumentTest`, `DailyLimitPolicyResolverTest`):
-  validação de CPF/CNPJ e resolução de limites diários.
-- **Testes unitários de serviço** (`UserServiceImplTest`): regras de criação de
-  usuário (unicidade de e-mail/documento, criação automática da carteira zerada),
-  usando Mockito para isolar a camada de serviço da persistência.
-- **Testes de integração** (`UserControllerTest`, `@MicronautTest`): sobem o
-  contexto completo (servidor embarcado + H2 + Flyway) e exercitam a API via HTTP,
-  cobrindo criação de PF/PJ, consulta por id, conflito de e-mail duplicado e usuário
-  não encontrado.
+## Cobertura de testes
 
-## Progresso incremental
-
-O desenvolvimento segue de forma incremental, conforme solicitado no desafio.
-
-**Feito (Incremento 1):**
-- Estrutura do projeto Micronaut + Maven, com Maven Wrapper.
-- Banco em memória (H2) + migrations (Flyway).
-- Domínio de usuários (PF/PJ via `Document`/`DocumentType`) e carteiras
-  (`Wallet`), com validação real de CPF/CNPJ e unicidade de e-mail/documento.
-- Estratégia de limite diário (`DailyLimitPolicy`) modelada e testada, mas ainda
-  **não conectada** ao fluxo de criação (será usada quando a remessa existir).
-- Endpoints REST de criação (PF/PJ) e consulta de usuário, com DTOs próprios e
-  tratamento de erro centralizado.
-- Testes unitários e de integração.
-
-**Deliberadamente fora deste incremento (planejado para os próximos):**
-- Integração com a API do Banco Central (cotação `cotacaoCompra`).
-- Operação de remessa (conversão BRL→USD + transferência), validação de saldo e
-  do limite diário transacionado.
-- Fallback de cotação para finais de semana (por indicação explícita do
-  enunciado, deve ser o **último** recurso a ser implementado).
-- Cache, Docker/Kubernetes (diferenciais).
+| Conjunto | Tipo | O que cobre |
+|----------|------|-------------|
+| `DocumentTest` | Unitário | Validação real de CPF/CNPJ |
+| `WalletTest` | Unitário | `debitBrl`, `creditUsd`, imutabilidade, casos de borda |
+| `DailyLimitPolicyResolverTest` | Unitário | Resolução de limite por tipo de documento |
+| `ExchangeRateGatewayAdapterTest` | Unitário (Mockito) | Cotação, fallback, tratamento de falhas |
+| `UserServiceImplTest` | Unitário (Mockito) | Criação de usuário, unicidade, erros |
+| `RemessaServiceImplTest` | Unitário (Mockito) | Fluxo completo, cada validação, conversão, rollback lógico |
+| `TransferRepositoryAdapterTest` | Integração (H2) | Persistência e query de soma diária |
+| `PtaxClientIntegrationTest` | Integração (servidor mock) | URL OData gerada, aspas simples não encodadas |
+| `UserControllerTest` | Integração (H2 + HTTP) | Endpoints de usuário ponta a ponta |
+| `RemessaControllerTest` | Integração (H2 + HTTP) | Endpoint de remessa: sucesso, 404, 422, 503, 400 |
