@@ -7,6 +7,7 @@ valor da carteira BRL do remetente e credita o equivalente em USD na carteira do
 destinatário.
 
 ## Como compilar e executar
+> Configure `JAVA_HOME` para o diretório onde o JDK 25 está instalado.
 
 Não é necessário ter o Maven instalado — o projeto inclui o Maven Wrapper.
 
@@ -16,6 +17,9 @@ Não é necessário ter o Maven instalado — o projeto inclui o Maven Wrapper.
 
 # Windows
 mvnw.cmd mn:run
+
+# Windows PowerShell
+.\mvnw.cmd mn:run
 ```
 
 A aplicação sobe em `http://localhost:8080`. O banco H2 em memória e as tabelas são
@@ -29,6 +33,9 @@ criados automaticamente via Flyway na inicialização.
 
 # Windows
 mvnw.cmd test
+
+# Windows PowerShell
+.\mvnw.cmd test
 ```
 
 ## API
@@ -46,6 +53,12 @@ mvnw.cmd test
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | `POST` | `/api/remessas` | Executa uma remessa BRL → USD |
+
+### Crédito (adicional para testes)
+
+| Método | Rota            | Descrição                                  |
+|--------|-----------------|--------------------------------------------|
+| `POST` | `/api/users/<uuid-do-usuario>/credit` | Adiciona saldo BRL e/ou USD para o usuário |
 
 ### Exemplos
 
@@ -74,6 +87,17 @@ curl -X POST http://localhost:8080/api/users/pj \
         "cnpj": "11.222.333/0001-81"
       }'
 ```
+
+**Creditar carteira (adicional para testes):**
+
+```bash
+    curl -X POST http://localhost:8080/api/users/<uuid-do-usuario>/credit \
+      -H "Content-Type: application/json" \
+      -d '{
+        "amountBrl": 5000.00,
+        "amountUsd": 100.00
+      }'
+  ```
 
 **Executar remessa:**
 
@@ -201,10 +225,10 @@ específica para sábado/domingo — qualquer ausência de cotação dispara o f
 `HttpClientException` interrompe imediatamente sem retroceder, pois indica problema
 de conectividade, não de ausência de dado.
 
-**`Wallet` é imutável.** `debitBrl` e `creditUsd` retornam uma nova instância com
-o saldo atualizado. O `RemessaServiceImpl` obtém as duas novas instâncias antes de
-qualquer escrita, garantindo que em caso de falha anterior ao `update()` nenhum
-estado parcial é persistido.
+**`Wallet` é imutável.** `debitBrl`, `creditBrl` e `creditUsd` retornam uma nova
+instância com o saldo atualizado. O `RemessaServiceImpl` obtém as novas instâncias
+antes de qualquer escrita, garantindo que em caso de falha anterior ao `update()`
+nenhum estado parcial é persistido.
 
 **Validação real de CPF e CNPJ** (algoritmo de dígitos verificadores), não apenas
 formato/tamanho.

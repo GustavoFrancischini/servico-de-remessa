@@ -6,7 +6,10 @@ import com.remessa.infrastructure.exchange.client.PtaxClient;
 import com.remessa.infrastructure.exchange.dto.PtaxResponse;
 import io.micronaut.context.annotation.Value;
 import io.micronaut.http.client.exceptions.HttpClientException;
+import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,9 +31,13 @@ import java.util.List;
 public class ExchangeRateGatewayAdapter implements ExchangeRateGateway {
 
     private static final DateTimeFormatter PTAX_DATE_FORMAT = DateTimeFormatter.ofPattern("MM-dd-yyyy");
+    private static final Logger LOG = LoggerFactory.getLogger(ExchangeRateGatewayAdapter.class);
 
     private final PtaxClient ptaxClient;
     private final int fallbackDays;
+
+    @Value("${bcb.ptax.base-url}")
+    private String ptaxBaseUrl;
 
     public ExchangeRateGatewayAdapter(
             PtaxClient ptaxClient,
@@ -80,9 +87,36 @@ public class ExchangeRateGatewayAdapter implements ExchangeRateGateway {
 
             return cotacao;
         } catch (HttpClientException e) {
-            // Falha de conectividade: não faz sentido retroceder dias, pois o problema
-            // não é a data mas a disponibilidade da API.
+            logHttpFailure(candidate, dataCotacao, e);
             throw new ExchangeRateUnavailableException(originalDate, e);
         }
+    }
+
+    private void logHttpFailure(LocalDate candidate, String dataCotacao, HttpClientException exception) {
+        if (exception instanceof HttpClientResponseException responseException) {
+            String responseBody = responseException.getResponse().getBody(String.class).orElse("<empty>");
+            LOG.error(
+                    "PTAX request failed: candidate={}, url={}, status={}, body={}, message={}",
+                    candidate,
+                    requestUrl(dataCotacao),
+                    responseException.getStatus().getCode(),
+                    responseBody,
+                    exception.getMessage(),
+                    exception);
+            return;
+        }
+
+        LOG.error(
+                "PTAX request failed before receiving an HTTP response: candidate={}, dataCotacao={}, message={}",
+                candidate,
+                dataCotacao,
+                exception.getMessage(),
+                exception);
+    }
+
+    private String requestUrl(String dataCotacao) {
+        return ptaxBaseUrl
+                + "/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao=" + dataCotacao
+                + "&$top=1&$format=json&$select=cotacaoCompra,cotacaoVenda,dataHoraCotacao";
     }
 }

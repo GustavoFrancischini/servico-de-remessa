@@ -4,6 +4,7 @@ import com.remessa.application.service.UserService;
 import com.remessa.domain.model.UserAccount;
 import com.remessa.interfaces.rest.dto.CreatePessoaFisicaRequest;
 import com.remessa.interfaces.rest.dto.CreatePessoaJuridicaRequest;
+import com.remessa.interfaces.rest.dto.CreditWalletRequest;
 import com.remessa.interfaces.rest.dto.UserResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.Body;
@@ -43,5 +44,12 @@ public class UserController {
     @Get("/{id}")
     public UserResponse getById(UUID id) {
         return UserResponse.from(userService.getAccount(id));
+    }
+
+    /** Crédito direto de saldo, sem validação de origem — uso apenas para preparar dados de teste. */
+    @Post("/{id}/credit")
+    public UserResponse credit(UUID id, @Body CreditWalletRequest request) {
+        UserAccount account = userService.creditWallet(id, request.amountBrl(), request.amountUsd());
+        return UserResponse.from(account);
     }
 }

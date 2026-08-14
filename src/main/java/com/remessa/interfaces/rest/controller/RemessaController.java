@@ -4,6 +4,8 @@ import com.remessa.application.service.RemessaService;
 import com.remessa.domain.model.Transfer;
 import com.remessa.interfaces.rest.dto.CreateRemessaRequest;
 import com.remessa.interfaces.rest.dto.RemessaResponse;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.annotation.ExecuteOn;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -22,6 +24,7 @@ public class RemessaController {
 
     @Post
     @Status(HttpStatus.CREATED)
+    @ExecuteOn(TaskExecutors.BLOCKING)
     public RemessaResponse criar(@Valid @Body CreateRemessaRequest request) {
         Transfer transfer = remessaService.executar(
                 request.senderId(),

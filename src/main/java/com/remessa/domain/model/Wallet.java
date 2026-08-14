@@ -81,4 +81,17 @@ public final class Wallet {
         }
         return new Wallet(id, userId, balanceBrl, balanceUsd.add(amount), createdAt);
     }
+
+    /**
+     * Retorna uma nova Wallet com {@code amount} creditado no saldo em BRL.
+     *
+     * @param amount valor a creditar; deve ser positivo
+     * @throws IllegalArgumentException se {@code amount} for nulo ou não-positivo
+     */
+    public Wallet creditBrl(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O valor a creditar deve ser positivo");
+        }
+        return new Wallet(id, userId, balanceBrl.add(amount), balanceUsd, createdAt);
+    }
 }

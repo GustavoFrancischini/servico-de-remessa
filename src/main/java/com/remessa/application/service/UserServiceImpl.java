@@ -13,6 +13,7 @@ import com.remessa.domain.security.PasswordHasher;
 import io.micronaut.transaction.annotation.Transactional;
 import jakarta.inject.Singleton;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Singleton
@@ -47,6 +48,23 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
         Wallet wallet = walletRepository.findByUserId(id).orElseThrow(() -> new UserNotFoundException(id));
         return new UserAccount(user, wallet);
+    }
+
+    @Override
+    @Transactional
+    public UserAccount creditWallet(UUID userId, BigDecimal amountBrl, BigDecimal amountUsd) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
+        Wallet wallet = walletRepository.findByUserId(userId).orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (amountBrl != null) {
+            wallet = wallet.creditBrl(amountBrl);
+        }
+        if (amountUsd != null) {
+            wallet = wallet.creditUsd(amountUsd);
+        }
+
+        Wallet updatedWallet = walletRepository.update(wallet);
+        return new UserAccount(user, updatedWallet);
     }
 
     private UserAccount createUser(String fullName, String email, String rawPassword, Document document) {
