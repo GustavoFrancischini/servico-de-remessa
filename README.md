@@ -236,6 +236,14 @@ formato/tamanho.
 **Flyway** em vez de `schema-generate` automático — versionado, auditável e o
 padrão profissional de mercado.
 
+**Idempotência no endpoint de remessa (não implementada, apenas sugestão).** Em
+produção, o `POST /api/remessas` poderia aceitar um header `Idempotency-Key: <uuid>`
+gerado pelo cliente. O servidor armazenaria a chave na tabela `transfers` (coluna
+unique) e, em caso de retry com a mesma chave, retornaria a remessa original sem
+reprocessar — evitando duplo débito em caso de timeout ou falha de rede. A
+estrutura atual (transfer persistida atomicamente, porta `TransferRepository`)
+suporta essa adição sem mudança de design.
+
 ## Modelagem do banco
 
 ```
