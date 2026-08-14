@@ -4,7 +4,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Carteira de um usuário, com saldos independentes em Real e em Dólar. */
+/**
+ * Carteira de um usuário, com saldos independentes em Real e em Dólar.
+ *
+ * <p>Wallet é imutável: as operações de saldo retornam uma nova instância
+ * com o valor atualizado, preservando o estado anterior para rollback transacional.
+ */
 public final class Wallet {
 
     private final UUID id;
@@ -45,5 +50,35 @@ public final class Wallet {
 
     public Instant createdAt() {
         return createdAt;
+    }
+
+    /**
+     * Retorna uma nova Wallet com {@code amount} debitado do saldo em BRL.
+     *
+     * @param amount valor a debitar; deve ser positivo e não superior ao saldo atual
+     * @throws IllegalArgumentException se {@code amount} for nulo, não-positivo ou maior que o saldo
+     */
+    public Wallet debitBrl(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O valor a debitar deve ser positivo");
+        }
+        if (amount.compareTo(balanceBrl) > 0) {
+            throw new IllegalArgumentException(
+                    "Saldo insuficiente: saldo=" + balanceBrl + ", débito=" + amount);
+        }
+        return new Wallet(id, userId, balanceBrl.subtract(amount), balanceUsd, createdAt);
+    }
+
+    /**
+     * Retorna uma nova Wallet com {@code amount} creditado no saldo em USD.
+     *
+     * @param amount valor a creditar; deve ser positivo
+     * @throws IllegalArgumentException se {@code amount} for nulo ou não-positivo
+     */
+    public Wallet creditUsd(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O valor a creditar deve ser positivo");
+        }
+        return new Wallet(id, userId, balanceBrl, balanceUsd.add(amount), createdAt);
     }
 }

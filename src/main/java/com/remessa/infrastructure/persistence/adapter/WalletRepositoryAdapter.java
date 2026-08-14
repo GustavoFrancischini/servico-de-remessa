@@ -25,6 +25,11 @@ public class WalletRepositoryAdapter implements WalletRepository {
     }
 
     @Override
+    public Wallet update(Wallet wallet) {
+        return toDomain(jdbcRepository.update(toEntity(wallet)));
+    }
+
+    @Override
     public Optional<Wallet> findByUserId(UUID userId) {
         return jdbcRepository.findByUserId(userId).map(this::toDomain);
     }

@@ -10,5 +10,11 @@ public interface WalletRepository {
 
     Wallet save(Wallet wallet);
 
+    /**
+     * Persiste as alterações de saldo de uma carteira já existente.
+     * Deve ser chamado após {@link Wallet#debitBrl} ou {@link Wallet#creditUsd}.
+     */
+    Wallet update(Wallet wallet);
+
     Optional<Wallet> findByUserId(UUID userId);
 }

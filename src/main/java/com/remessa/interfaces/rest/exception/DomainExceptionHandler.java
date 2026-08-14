@@ -1,9 +1,11 @@
 package com.remessa.interfaces.rest.exception;
 
+import com.remessa.domain.exception.DailyLimitExceededException;
 import com.remessa.domain.exception.DomainException;
 import com.remessa.domain.exception.DuplicateDocumentException;
 import com.remessa.domain.exception.DuplicateEmailException;
 import com.remessa.domain.exception.ExchangeRateUnavailableException;
+import com.remessa.domain.exception.InsufficientBalanceException;
 import com.remessa.domain.exception.InvalidDocumentException;
 import com.remessa.domain.exception.UserNotFoundException;
 import io.micronaut.http.HttpRequest;
@@ -37,6 +39,10 @@ public class DomainExceptionHandler implements ExceptionHandler<DomainException,
         }
         if (exception instanceof ExchangeRateUnavailableException) {
             return HttpStatus.SERVICE_UNAVAILABLE;
+        }
+        if (exception instanceof InsufficientBalanceException
+                || exception instanceof DailyLimitExceededException) {
+            return HttpStatus.UNPROCESSABLE_ENTITY;
         }
         return HttpStatus.BAD_REQUEST;
     }
